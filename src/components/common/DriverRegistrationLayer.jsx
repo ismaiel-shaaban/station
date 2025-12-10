@@ -40,7 +40,7 @@ const DriverRegistrationLayer = () => {
     // Step 1 fields
     fullName: yup.string().required("الاسم الثلاثي مع اللقب مطلوب"),
     dateOfBirth: yup.string().required("تاريخ الميلاد مطلوب"),
-    phone: yup.string().required("رقم الهاتف مطلوب"),
+    phone: yup.string().required("رقم الهاتف مطلوب").matches(/^\d{11}$/, "رقم الهاتف يجب أن يكون 11 رقم بالضبط"),
     governorate: yup.string().required("المحافظة مطلوبة"),
     address: yup.string().required("العنوان مطلوب"),
     personalPhoto: yup.string().required("صورة شخصية مطلوبة"),
@@ -53,7 +53,7 @@ const DriverRegistrationLayer = () => {
     vehicleCategory: yup.string().required("نوع المركبة مطلوب"),
     vehicleModel: yup.string().required("نوع المركبة (الموديل) مطلوب"),
     vehicleCapacity: yup.number().typeError("سعة المركبة يجب أن تكون رقم").required("سعة المركبة مطلوبة").min(1, "سعة المركبة يجب أن تكون أكبر من 0"),
-    carNumber: yup.string().required("رقم المركبة (لوحة المركبة) مطلوب"),
+    carNumber: yup.string().required("صورة رقم المركبة (لوحة المركبة) مطلوبة"),
   
     carColor: yup.string().required("لون المركبة مطلوب"),
     vehicleFrontPhoto: yup.string().required("صورة المركبة من الأمام مطلوبة"),
@@ -119,6 +119,98 @@ const DriverRegistrationLayer = () => {
     }
   };
 
+  // Handle camera capture for personal photo
+  const handleCameraCapture = async () => {
+    try {
+      // Request camera access
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' }, 
+        audio: false 
+      });
+
+      // Create video element to show camera preview
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.style.width = '100%';
+      video.style.maxWidth = '500px';
+      video.style.borderRadius = '8px';
+
+      // Create modal for camera preview
+      const modal = document.createElement('div');
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      modal.style.display = 'flex';
+      modal.style.flexDirection = 'column';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.zIndex = '9999';
+      modal.style.padding = '20px';
+
+      // Create capture button
+      const captureBtn = document.createElement('button');
+      captureBtn.textContent = 'التقاط الصورة';
+      captureBtn.className = 'btn btn-primary-600 mt-3 px-24 py-12 radius-8';
+      captureBtn.style.fontSize = '16px';
+
+      // Create cancel button
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'إلغاء';
+      cancelBtn.className = 'btn btn-outline-danger-600 mt-2 px-24 py-12 radius-8';
+      cancelBtn.style.fontSize = '16px';
+
+      // Create button container
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.display = 'flex';
+      buttonContainer.style.gap = '12px';
+      buttonContainer.style.flexDirection = 'column';
+      buttonContainer.style.alignItems = 'center';
+
+      buttonContainer.appendChild(captureBtn);
+      buttonContainer.appendChild(cancelBtn);
+      modal.appendChild(video);
+      modal.appendChild(buttonContainer);
+      document.body.appendChild(modal);
+
+      // Capture photo
+      captureBtn.onclick = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+
+        // Stop camera stream
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+
+        // Convert canvas to blob
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            // Create a File object from the blob
+            const file = new File([blob], 'personal-photo.jpg', { type: 'image/jpeg' });
+            await handleFileUpload(file, 'personalPhoto');
+          }
+        }, 'image/jpeg', 0.9);
+      };
+
+      // Cancel and close
+      cancelBtn.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      toast.error('حدث خطأ في الوصول إلى الكاميرا. يرجى التأكد من السماح بالوصول إلى الكاميرا.');
+    }
+  };
+
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
@@ -129,6 +221,7 @@ const DriverRegistrationLayer = () => {
         "idBackPhoto",
         "drivingLicensePhoto",
         "drivingLicenseBackPhoto",
+        "carNumber",
         "vehicleFrontPhoto",
         "vehicleBackPhoto",
         "vehicleInteriorPhoto",
@@ -371,13 +464,15 @@ const DriverRegistrationLayer = () => {
                       <label htmlFor="personalPhoto" className="form-label fw-semibold text-primary-light text-sm mb-8">
                         صورة شخصية <span className="text-danger-600">*</span>
                       </label>
-                      <input
-                        type="file"
-                        className={`form-control radius-8 ${errors.personalPhoto ? "is-invalid" : ""}`}
-                        id="personalPhoto"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, "personalPhoto")}
-                      />
+                      <button
+                        type="button"
+                        onClick={handleCameraCapture}
+                        className={`btn btn-outline-primary-600 w-100 radius-8 ${errors.personalPhoto ? "border-danger-600" : ""}`}
+                        style={{ height: "44px" }}
+                      >
+                        <Icon icon="mdi:camera" className="me-2" style={{ fontSize: "20px" }} />
+                        فتح الكاميرا لالتقاط الصورة
+                      </button>
                       {photoPreviews.personalPhoto && (
                         <div className="mt-2">
                           <img
@@ -389,6 +484,9 @@ const DriverRegistrationLayer = () => {
                         </div>
                       )}
                       <div className="invalid-feedback">{errors.personalPhoto?.message}</div>
+                      <small className="text-secondary-light text-xs mt-1 d-block">
+                        سيتم فتح الكاميرا مباشرة لالتقاط الصورة
+                      </small>
                     </div>
 
                     <div className="col-md-6">
@@ -563,15 +661,25 @@ const DriverRegistrationLayer = () => {
 
                     <div className="col-md-6">
                       <label htmlFor="carNumber" className="form-label fw-semibold text-primary-light text-sm mb-8">
-                        رقم المركبة (لوحة المركبة) <span className="text-danger-600">*</span>
+                        صورة رقم المركبة (لوحة المركبة) <span className="text-danger-600">*</span>
                       </label>
                       <input
-                        type="text"
+                        type="file"
                         className={`form-control radius-8 ${errors.carNumber ? "is-invalid" : ""}`}
                         id="carNumber"
-                        placeholder="رقم المركبة"
-                        {...register("carNumber")}
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, "carNumber")}
                       />
+                      {photoPreviews.carNumber && (
+                        <div className="mt-2">
+                          <img
+                            src={photoPreviews.carNumber}
+                            alt="Preview"
+                            className="img-thumbnail"
+                            style={{ maxHeight: "100px" }}
+                          />
+                        </div>
+                      )}
                       <div className="invalid-feedback">{errors.carNumber?.message}</div>
                     </div>
 
