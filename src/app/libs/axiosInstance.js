@@ -3,14 +3,14 @@ import axios from "axios";
 import Cookies from "js-cookie";
 
 const axiosInstance = axios.create({
-	baseURL: "https://demo.technolanes.com/station/api/v1",
+	baseURL: "https://station.technolanes.com/station/api/v1",
 	headers: {
 		Accept: "*/*",
 		"Content-Type": "application/json",
 	},
 });
 export const publicAxiosInstance = axios.create({
-	baseURL: "https://demo.technolanes.com/station/api/v1",
+	baseURL: "https://station.technolanes.com/station/api/v1",
 	headers: {
 		Accept: "*/*",
 		"Content-Type": "application/json",
